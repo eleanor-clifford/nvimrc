@@ -1,0 +1,27 @@
+snippet margins "Show all margins" b
+\definecolor{light grey}{rgb}{0.8, 0.8, 0.8}
+\newcommand{\showmargins}{
+	\begin{tikzpicture}[color=light grey, remember picture, overlay, line width=0.5pt]
+
+		\draw (current page text area.west |- current page.north)
+		   -- (current page text area.west |- current page.south);
+
+		\draw (current page text area.east |- current page.north)
+		   -- (current page text area.east |- current page.south);
+
+		\draw (current page text area.north -| current page.west)
+		   -- (current page text area.north -| current page.east);
+
+		\draw (current page text area.south -| current page.west)
+		   -- (current page text area.south -| current page.east);
+
+		\draw (current page column 1 area.east |- current page.north)
+		   -- (current page column 1 area.east |- current page.south);
+
+		\draw (current page column 2 area.west |- current page.north)
+		   -- (current page column 2 area.west |- current page.south);
+	\end{tikzpicture}
+}
+
+\AddToHook{shipout/background}{\put(0,0){\showmargins}}
+endsnippet

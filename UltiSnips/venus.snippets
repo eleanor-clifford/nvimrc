@@ -62,3 +62,16 @@ endsnippet
 snippet docls "Document Class" b
 \documentclass{$1}$0
 endsnippet
+
+snippet tikz "Tikz" b
+\begin{figure}[H]
+	\centering
+	\adjustbox{width=\linewidth}{
+		\begin{tikzpicture}[node distance=10mm, minimum height=1.5em, >={Stealth[scale=1]}]
+			\node[draw] (A) {Node A};
+			\node[draw, right=of A] (B) {Node B};
+			\draw[->] (A) -- (B) node [midway, above, align=bottom] (AtoB) {A to B};
+		\end{tikzpicture}
+	}
+\end{figure}
+endsnippet

@@ -12,8 +12,8 @@ Plug 'vim-scripts/vis'
 
 " Neovim stuff
 Plug 'neovim/nvim-lspconfig'
-"Plug 'tjdevries/nlua.nvim'
-"Plug 'nvim-lua/lsp_extensions.nvim' " Some problems with get_count
+Plug 'tjdevries/nlua.nvim'
+Plug 'nvim-lua/lsp_extensions.nvim'
 Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}
 Plug 'nvim-lua/popup.nvim'
 Plug 'nvim-lua/plenary.nvim'
@@ -40,6 +40,7 @@ Plug 'sirver/ultisnips'
 Plug 'honza/vim-snippets'
 
 " Functionality
+Plug 'peterhoeg/vim-qml'
 Plug 'lervag/vimtex'
 Plug 'https://git.sr.ht/~ecc/vim-venus'
 Plug 'eleanor-clifford/vim-qalc'
@@ -86,7 +87,7 @@ set            termguicolors
 " Formatting
 set tabstop=4 softtabstop=4 shiftwidth=4 noexpandtab
 set textwidth=79
-augroup formatting
+augroup WhitespaceFormatting
 	autocmd!
 	autocmd BufWritePre * call TrimWhitespace()
 augroup END
@@ -117,19 +118,32 @@ set nowrap
 set number
 set guicursor=
 set list
+set listchars=tab:\|\ >
 
-fun! SetRelativenumber()
-	" Help files don't get numbering so without this check we'll get an
-	" annoying shift in the text when going in and out of a help buffer
-	if &filetype != "help"
+fun! SetNumber()
+	" Help files/terminal files don't need numbering
+	if &filetype == "help" || &buftype == "terminal"
+		set nonumber
+		set norelativenumber
+	else
+		set number
 		set relativenumber
 	endif
 endfun
-autocmd BufEnter,FocusGained * call SetRelativenumber()
+autocmd BufEnter,FocusGained * call SetNumber()
 autocmd BufLeave,FocusLost   * set norelativenumber
 set scrolloff=8
 set signcolumn=yes
 set colorcolumn=80,120
+
+fun! WrapMode()
+	set tw=0
+	set wrap
+	set linebreak
+	set columns=100
+	autocmd VimResized * if (&columns > 100) | set columns=100 | endif
+endfun
+command! Wrap :call WrapMode()
 
 " Misc
 set undodir=~/.local/share/nvim/undo
@@ -144,12 +158,31 @@ set shortmess+=c
 command! DiffOrig vert new | set bt=nofile | r # | 0d_ | diffthis
 		\ | wincmd p | diffthis
 command! Cd cd %:p:h
+
+function! Scratch()
+    vsplit
+    noswapfile hide enew
+    setlocal buftype=nofile
+    setlocal bufhidden=hide
+endfunction
+
+command! Scratch :call Scratch()
+
+function NoFormatting()
+	set tw=0
+	augroup EmailFormatting
+		autocmd!
+	augroup END
+	augroup WhitespaceFormatting
+		autocmd!
+	augroup END
+endfun
 " }}}
 " Cheatsheet {{{
 command! -nargs=+ Help :call Help(<q-args>)
 fun! Help(args)
 	let argsl = split(a:args, ' ')
-	execute 'AsyncRun -mode=terminal curl cht.sh/'.argsl[0].'/'.join(argsl[1:], '+')
+	execute 'AsyncRun -mode=term curl cht.sh/'.argsl[0].'/'.join(argsl[1:], '+')
 endfun
 " }}}
 " Modeline {{{
@@ -174,41 +207,42 @@ endfun
 
 let g:asyncrun_open=5
 autocmd! BufWritePost $MYVIMRC nested source %
-execute 'autocmd! BufWritePost '.$HOME.'/.vim/git/.vimrc-nvim nested source %'
 fun! MakeAndRun()
+	fun! s:r(cmd)
+		execute ':AsyncRun -mode=term '.a:cmd
+		norm! k
+	endfun
+
+	:AsyncStop
+	while g:asyncrun_status == 'running'
+		sleep 1
+	endwhile
+
+	"lua require("harpoon.term").gotoTerminal(1)
 	if filereadable('start.sh')
-		"lua require("harpoon.term").gotoTerminal(1)
-		:AsyncStop
-		while g:asyncrun_status == 'running'
-			sleep 1
-		endwhile
-		:AsyncRun ./start.sh
+		call s:r("./start.sh")
 	elseif filereadable('Makefile')
-		:AsyncRun make
-		while g:asyncrun_status == 'running'
-			sleep 1
-		endwhile
-		if filereadable(expand('%:r'))
-			call system('./'.expand('%:r').'>stdout.txt 2>stderr.txt&')
-		endif
+		call s:r("make")
+
+		"if filereadable(expand('%:r'))
+			"call system('./'.expand('%:r').'>stdout.txt 2>stderr.txt&')
+		"endif
 	elseif &filetype == 'python'
-		:AsyncStop
-		execute ':AsyncRun python3 '.expand('%')
+		call s:r('python3 '.expand('%'))
 	elseif &filetype == 'sh'
-		:AsyncStop
-		execute ':AsyncRun ./'.expand('%')
+		call s:r('./'.expand('%'))
 	elseif &filetype == 'venus'
-		:AsyncStop
 		call venus#Make()
-	elseif &filetype == 'tex'
-		execute ':AsyncRun pdflatex '.expand('%')
-		while g:asyncrun_status == 'running'
-			sleep 1
-		endwhile
-		call venus#OpenZathura()
+	"elseif &filetype == 'tex'
+		"s:r('pdflatex '.expand('%'))
+		"while g:asyncrun_status == 'running'
+			"sleep 1
+		"endwhile
+		"call venus#OpenZathura()
 	else
 		echom "I don't know how to make this"
 	endif
+
 endfun
 fun! Make()
 	if &filetype == 'markdown'
@@ -222,7 +256,7 @@ endfun
 autocmd FileType verilog set ts=8
 " }}}
 " Network stuff {{{
-command! -nargs=1 Curl :r !curl -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36" -sS <q-args>
+command! -nargs=1 Curl :r !curl -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36" -fsSL <q-args>
 command! -nargs=1 Gurl :r !gmni gemini://<q-args> -j once
 " }}}
 " Project Specific {{{
@@ -397,12 +431,12 @@ onoremap  hd           <Plug>(vimtex-id)
 " }}}
 " Venus {{{
 let g:pandoc_defaults_file   = '~/.config/pandoc/pandoc.yaml'
-let g:pandoc_header_dir      = '~/.config/pandoc/headers'
+let g:pandoc_headers      = '~/.config/pandoc/headers'
 let g:pandoc_highlight_file  = '~/.config/pandoc/dracula.theme'
 let g:pandoc_options         = '--citeproc'
 let g:venus_pandoc_callback  = ['venus#OpenZathura']
-let g:venus_ignorelist       = ['README.md', 'https-ellie.clifford.lol/blog']
-let g:markdown_fenced_languages = ['tex', 'python', 'sh', 'haskell', 'c', 'html', 'json', 'javascript']
+let g:venus_ignorelist       = ['README.md']
+let g:markdown_fenced_languages = ['tex', 'python', 'sh', 'haskell', 'c', 'html', 'json', 'javascript', 'yaml']
 " }}}
 " Airline {{{
 let g:airline_extensions = ['quickfix', 'netrw', 'term', 'csv', 'branch', 'fugitiveline', 'nvimlsp', 'po', 'wordcount', 'searchcount']
@@ -422,79 +456,55 @@ let g:codi#interpreters = {
 " }}}
 " Completion {{{
 set completeopt=menu,menuone,noselect
-
-"lua <<EOF
-  "-- Setup nvim-cmp.
-  "local cmp = require'cmp'
-
-  "cmp.setup({
-    "snippet = {
-      "-- REQUIRED - you must specify a snippet engine
-      "expand = function(args)
-        "-- vim.fn["vsnip#anonymous"](args.body) -- For `vsnip` users.
-        "-- require('luasnip').lsp_expand(args.body) -- For `luasnip` users.
-        "-- require('snippy').expand_snippet(args.body) -- For `snippy` users.
-        "vim.fn["UltiSnips#Anon"](args.body) -- For `ultisnips` users.
-      "end,
-    "},
-    "mapping = {
-      "['<C-b>'] = cmp.mapping(cmp.mapping.scroll_docs(-4), { 'i', 'c' }),
-      "['<C-f>'] = cmp.mapping(cmp.mapping.scroll_docs(4), { 'i', 'c' }),
-      "['<C-Space>'] = cmp.mapping(cmp.mapping.complete(), { 'i', 'c' }),
-      "['<C-y>'] = cmp.config.disable, -- Specify `cmp.config.disable` if you want to remove the default `<C-y>` mapping.
-      "['<C-n>'] = cmp.mapping({
-        "i = cmp.mapping.abort(),
-        "c = cmp.mapping.close(),
-      "}),
-      "['<C-e>'] = cmp.mapping.confirm({ select = true }), -- Accept currently selected item. Set `select` to `false` to only confirm explicitly selected items.
-    "},
-    "sources = cmp.config.sources({
-      "{ name = 'nvim_lsp' },
-      "-- { name = 'vsnip' }, -- For vsnip users.
-      "-- { name = 'luasnip' }, -- For luasnip users.
-      "{ name = 'ultisnips' }, -- For ultisnips users.
-      "-- { name = 'snippy' }, -- For snippy users.
-    "}, {
-      "{ name = 'buffer' },
-    "})
-  "})
-
-  "-- Use buffer source for `/` (if you enabled `native_menu`, this won't work anymore).
-  "cmp.setup.cmdline('/', {
-    "sources = {
-      "{ name = 'buffer' }
-    "}
-  "})
-
-  "-- Use cmdline & path source for ':' (if you enabled `native_menu`, this won't work anymore).
-  "cmp.setup.cmdline(':', {
-    "sources = cmp.config.sources({
-      "{ name = 'path' }
-    "}, {
-      "{ name = 'cmdline' }
-    "})
-  "})
-
-  "-- Setup lspconfig.
-  "local capabilities = require('cmp_nvim_lsp').update_capabilities(vim.lsp.protocol.make_client_capabilities())
-"EOF
-
 " }}}
 " Lspconfig {{{
-lua require('lspconfig').pyright.setup{capabilities = capabilities}
+"lua require('lspconfig').pyright.setup{capabilities = capabilities}
+
+lua << EOF
+require('lspconfig').pylsp.setup{
+	capabilities = capabilities,
+	settings = {
+		pylsp = {
+			plugins = {
+				pycodestyle = {
+					ignore = {
+						'E101', -- indentation contains mixed spaces and tabs
+						'E111', -- indentation is not a multiple of 4
+						'E114', -- indentation is not a multiple of 4 (comment)
+						'E116', -- unexpected indentation (comment)
+						'E127', -- continuation line over-indented for visual indent
+						'E131', -- continuation line unaligned for hanging intent
+						'W191', -- indentation contains tabs
+						'E201', -- whitespace after '('
+						'E221', -- multiple spaces before operator
+						'E241', -- multiple spaces after ':'
+						'E251', -- unexpected spaces around keyword / parameter equals
+						'E272', -- multiple spaces before keyword
+						'E303', -- too many blank lines
+						'E741', -- ambiguous variable name
+						'W503', -- line break before binary operator
+						'W504', -- line break after binary operator
+					},
+					maxLineLength = 100
+				}
+			}
+		}
+	}
+}
+EOF
+
 lua require('lspconfig').bashls.setup{capabilities = capabilities}
-lua require('lspconfig').tsserver.setup{capabilities = capabilities}
-lua require('lspconfig').rome.setup{capabilities = capabilities, cmd={ "rome", "lsp-proxy" }}
+lua require('lspconfig').gopls.setup{capabilities = capabilities}
+lua require('lspconfig').biome.setup{capabilities = capabilities}
 lua require('lspconfig').vimls.setup{capabilities = capabilities}
 lua require('lspconfig').clangd.setup{capabilities = capabilities}
 lua require('lspconfig').csharp_ls.setup{capabilities = capabilities}
 lua require('lspconfig').hls.setup{capabilities = capabilities}
-"lua require('lspconfig').ghdl_ls.setup{capabilities = capabilities}
-lua require('lspconfig').sumneko_lua.setup{capabilities = capabilities}
+lua require('lspconfig').lua_ls.setup{capabilities = capabilities}
 lua require('lspconfig').phpactor.setup{capabilities = capabilities}
-"lua require('lspconfig').ltex.setup{}
-"lua require('lspconfig').fortls.setup{capabilities = capabilities}
-"lua require('lspconfig').lua_ls.setup{capabilities = capabilities}
+lua require('lspconfig').lua_ls.setup{capabilities = capabilities}
+lua require('lspconfig').qmlls.setup{capabilities = capabilities}
+lua require('lspconfig').rust_analyzer.setup{capabilities = capabilities}
 " }}}
 " Telescope {{{
 lua require('telescope').load_extension('octo')
@@ -531,20 +541,59 @@ augroup END
 let g:glow_border="rounded"
 let g:glow_width=80
 " }}}
+" Firenvim {{{
+fun! FirenvimSetup()
+	let g:firenvim_config.localSettings["https?://[^/]+\\.slack\\.com/"] = { 'takeover': 'never', 'priority': 1 }
+	set autowriteall wrap linebreak
+	set textwidth=0
+	set colorcolumn=
+	nnoremap
+endfun
+
+command! Fire :call FirenvimSetup()
+
+if exists("g:started_by_firenvim") && g:started_by_firenvim
+	call FirenvimSetup()
+endif
+
+" }}}
+" Octo {{{
+lua require"octo".setup({})
+" }}}
+" }}}
+" Mystra {{{
+command! -nargs=+ MC  :call MystraCite(<q-args>)
+command! -nargs=+ MCO :call MystraCiteOnly(<q-args>)
+command! -nargs=+ MB  :call MystraBibtex(<q-args>)
+
+fun! MystraBibtex(args)
+	execute ".!mystra show --local --bibtex ".a:args
+endfun
+
+fun! MystraCiteOnly(args)
+	execute "silent norm! a=substitute(system('mystra show --local --bibtex-id ".a:args."'), '\\n$', '', '')\n"
+endfun
+fun! MystraCite(args)
+	call MystraCiteOnly(a:args)
+	edit bibliography.bib
+	call append(line('$'), "")
+	$
+	call MystraBibtex(a:args)
+	edit #
+endfun
 " }}}
 " Keyboard Mappings {{{
 " General {{{
 let mapleader = " "
 let maplocalleader = " "
 nnoremap <silent> <leader>v<leader> :edit ~/.config/nvim/init.vim<CR>
-" Why is this not default, I don't get it
-noremap Y y$
+noremap Y y$ " Why is this not default, I don't get it
 noremap <silent> <leader>j :next<CR>
 noremap <silent> <leader>J :prev<CR>
 
 noremap n h
-noremap e j
-noremap <nowait> i k
+noremap e gj
+noremap <nowait> i gk
 noremap o l
 noremap k o
 noremap l e
@@ -639,12 +688,13 @@ endfun
 " LSP {{{
 " The original g commands are whack, seriously
 nnoremap gd :lua  vim.lsp.buf.definition()<CR>
+nnoremap gf :lua  vim.lsp.buf.code_action()<CR>
 nnoremap gi :lua  vim.lsp.buf.implementation()<CR>
-nnoremap gs :lua  vim.lsp.buf.signature_help()<CR>
-nnoremap gr :lua  vim.lsp.buf.rename()<CR>
+nnoremap gj :lua  vim.lsp.buf.references()<CR>
 nnoremap gl :call LSP_open_loclist()<CR>
 nnoremap gn :lua  vim.lsp.diagnostic.goto_next()<CR>
-nnoremap gj :lua  vim.lsp.buf.references()<CR>
+nnoremap gr :lua  vim.lsp.buf.rename()<CR>
+nnoremap gs :lua  vim.lsp.buf.signature_help()<CR>
 nnoremap gt :lua  vim.lsp.buf.type_definition()<CR>
 
 fun! LSP_open_loclist()
@@ -654,6 +704,9 @@ endfun
 
 " }}}
 " Plugin Keymaps {{{
+" Venus {{{
+vnoremap <silent> <leader>vo :!pandoc -f markdown -t latex<CR>
+" }}}
 " Emoji {{{
 set completefunc=emoji#complete
 " Replace emoji with utf-8

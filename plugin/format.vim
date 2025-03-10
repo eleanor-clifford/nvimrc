@@ -55,7 +55,7 @@ fun! s:AlignWhitespaceLines(lines, delim, aligner, splitregex)
 		let longest = -1
 		let matches = []
 		for line in aligned
-			let m = match(line, '[^\t ]\zs\s*\%('.splitregex.'\)\s*[^\t ]',
+			let m = match(line, '\S\zs\s*\%('.splitregex.'\)\s*\S',
 						\ current_depth)
 			" we'll need these later
 			let matches = matches + [m]
@@ -70,7 +70,7 @@ fun! s:AlignWhitespaceLines(lines, delim, aligner, splitregex)
 			let line = aligned[i]
 			let matchstart = matches[i]
 			let matchend = match(line,
-					\ '[^\t ]\s*\%('.splitregex.'\)\s*\zs[^\t ]', matchstart-1)
+					\ '\S\s*\%('.splitregex.'\)\s*\zs\S', matchstart-1)
 			" Do nothing if there are no matches on the line
 			if matchstart != -1 && matchend >= matchstart
 				let newline = line[:matchstart-1]
@@ -108,7 +108,7 @@ command! Indent call IndentFile()
 fun! TrimWhitespace()
 	let l:line = line('.')
 	let l:save = winsaveview()
-	keeppatterns %s/\s\+$//eg
+	keeppatterns %s/\(^--\)\@<!\s\+$//eg " in email, ^-- should end with a space
 	call winrestview(l:save)
 	echo l:line
 	execute ':'.l:line
@@ -118,17 +118,23 @@ endfun
 fun! FormatEmailRead()
 	" Yeah, I am big brain
 	set textwidth=78
-	silent g/\v^%(Cc|Bcc|Reply-To):\s*$/d
-	silent g/\v^(%(\> *)*)$\n\zs^\1.+$\ze\n^\1$/norm! gqj
+	silent g/\v^%(Cc|Bcc|Reply-To):\s*$/d " Remove empty headers
+	"silent g/\v^(%(\> *)*)$\n\zs^\1.{60,}$\ze\n^\1$/norm! gqj
+	
+	" Rewrite to Firstname Lastname
+	silent %s/\v^%(From|To|Cc|Bcc):.*\zs"(.{-}), ([^,]{-})"\ze \<.*\>,? *$/\2 \1/e " in RFC822 headers
+	silent %s/\v^%(On.*, )?(\w{-}), (\w{-}%( \w)?) wrote:$/\2 \1 wrote:/e " in reply quote header
+	silent %s/^From: Eleanor \zsC \zeClifford//e " and remove my middle initial
+
 	normal gg
 endfun
 
 fun! FormatEmailWrite()
 	" Just accept it, my regex skills are glorious
 	set textwidth=78
-	" disallow formatting indented text
-	"let indent_specifier       = '%(\> *)*'
-	let indent_specifier       = ''
+	"let indent_specifier       = '%(\> *)*' " don't format quoted text
+	let indent_specifier       = '' " do format quoted text
+
 	let date_specifier         = '\n^'.indent_specifier.'On .*, .* wrote:\s*\n'
 	let header_start_specifier = '^'.indent_specifier.'\s*[-_]+.*\n'
 	" Don't want to join intentionally split things, for now I will assume
@@ -142,7 +148,7 @@ fun! FormatEmailWrite()
 endfun
 
 fun! Reply80()
-	" Switch to a nice email style for like-minded people
+	" Turn off auto wrap and stuff
 	augroup EmailFormatting
 		autocmd!
 	augroup END
