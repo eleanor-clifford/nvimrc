@@ -1,3 +1,9 @@
+
+
+| :exclamation:  | This is a mirror of [https://git.sr.ht/~ecc/nvimrc](https://git.sr.ht/~ecc/nvimrc). Please refrain from using GitHub's issue and PR system.  |
+|----------------|:-------------------------------------------------------------------------------------------------------------------------------------------------------|
+
+
 # Ellie Clifford's personal neovim config
 
 ### Warning!
