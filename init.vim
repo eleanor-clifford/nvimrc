@@ -229,6 +229,8 @@ fun! MakeAndRun()
 		"endif
 	elseif &filetype == 'python'
 		call s:r('python3 '.expand('%'))
+	elseif &filetype == 'lua'
+		call s:r('lua '.expand('%'))
 	elseif &filetype == 'sh'
 		call s:r('./'.expand('%'))
 	elseif &filetype == 'venus'
@@ -560,7 +562,6 @@ endif
 " Octo {{{
 lua require"octo".setup({})
 " }}}
-" }}}
 " Mystra {{{
 command! -nargs=+ MC  :call MystraCite(<q-args>)
 command! -nargs=+ MCO :call MystraCiteOnly(<q-args>)
@@ -581,6 +582,13 @@ fun! MystraCite(args)
 	call MystraBibtex(a:args)
 	edit #
 endfun
+" }}}
+" {{{ nerdcommenter
+let g:NERDDefaultAlign = 'left'
+let g:NERDCustomDelimiters = {
+	\	'openscad': { 'left': '//' },
+	\ }
+" }}}
 " }}}
 " Keyboard Mappings {{{
 " General {{{
@@ -696,6 +704,7 @@ nnoremap gn :lua  vim.lsp.diagnostic.goto_next()<CR>
 nnoremap gr :lua  vim.lsp.buf.rename()<CR>
 nnoremap gs :lua  vim.lsp.buf.signature_help()<CR>
 nnoremap gt :lua  vim.lsp.buf.type_definition()<CR>
+nnoremap ge :lua  vim.diagnostic.open_float(nil, {focus=false})<CR>
 
 fun! LSP_open_loclist()
 	lua vim.lsp.diagnostic.set_loclist()
