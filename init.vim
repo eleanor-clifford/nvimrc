@@ -54,8 +54,8 @@ Plug 'ThePrimeagen/harpoon'
 Plug 'adelarsq/vim-matchit'
 
 Plug 'mattn/webapi-vim'
-Plug 'kana/vim-metarw'
-Plug 'eleanor-clifford/vim-metarw-gdrive'
+"Plug 'kana/vim-metarw' " breaks paths with : in them
+"Plug 'eleanor-clifford/vim-metarw-gdrive'
 
 " Syntax
 Plug 'chikamichi/mediawiki.vim'
@@ -97,6 +97,12 @@ if system("echo $SHLVL") == 1
 	call DontLetMeExit()
 endif
 
+fun! GetSyntax()
+	let s = synID(line('.'), col('.'), 1)
+	echo synIDattr(s, 'name') . ' -> ' . synIDattr(synIDtrans(s), 'name')
+endfun
+command! GetSyntax :call GetSyntax()
+
 fun! DontLetMeExit()
 	cabbrev q <c-r>=(getcmdtype()==':' && getcmdpos()==1 ? 'close' : 'q')<CR>
 	cabbrev wq <c-r>=(getcmdtype()==':' && getcmdpos()==1 ? 'w\|close' : 'q')<CR>
@@ -119,6 +125,7 @@ set number
 set guicursor=
 set list
 set listchars=tab:\|\ >
+let g:no_man_maps = 1
 
 fun! SetNumber()
 	" Help files/terminal files don't need numbering
@@ -177,6 +184,7 @@ function NoFormatting()
 		autocmd!
 	augroup END
 endfun
+command! NoFormatting :call NoFormatting()
 " }}}
 " Cheatsheet {{{
 command! -nargs=+ Help :call Help(<q-args>)
@@ -209,8 +217,9 @@ let g:asyncrun_open=5
 autocmd! BufWritePost $MYVIMRC nested source %
 fun! MakeAndRun()
 	fun! s:r(cmd)
-		execute ':AsyncRun -mode=term '.a:cmd
-		norm! k
+		"execute ':AsyncRun -mode=term '.a:cmd
+		"norm! k
+		execute ':AsyncRun '.a:cmd
 	endfun
 
 	:AsyncStop
@@ -439,6 +448,7 @@ let g:pandoc_options         = '--citeproc'
 let g:venus_pandoc_callback  = ['venus#OpenZathura']
 let g:venus_ignorelist       = ['README.md']
 let g:markdown_fenced_languages = ['tex', 'python', 'sh', 'haskell', 'c', 'html', 'json', 'javascript', 'yaml']
+command! Open :call venus#OpenZathura()
 " }}}
 " Airline {{{
 let g:airline_extensions = ['quickfix', 'netrw', 'term', 'csv', 'branch', 'fugitiveline', 'nvimlsp', 'po', 'wordcount', 'searchcount']
@@ -512,6 +522,13 @@ lua require('lspconfig').rust_analyzer.setup{capabilities = capabilities}
 lua require('telescope').load_extension('octo')
 " }}}
 " Ref {{{
+let g:ref_pydoc_cmd =
+	\ executable('pydoc') ? 'pydoc' :
+	\ executable('python') ? 'python -m pydoc' :
+	\ executable('pydoc3') ? 'pydoc3' :
+	\ executable('python3') ? 'python3 -m pydoc' :
+	\ ""
+
 command! -nargs=+ Rpy :Ref pydoc <args>
 command! -nargs=+ Rnp :Ref pydoc numpy.<args>
 command! -nargs=+ Rplt :Ref pydoc matplotlib.pyplot.<args>
@@ -595,7 +612,8 @@ let g:NERDCustomDelimiters = {
 let mapleader = " "
 let maplocalleader = " "
 nnoremap <silent> <leader>v<leader> :edit ~/.config/nvim/init.vim<CR>
-noremap Y y$ " Why is this not default, I don't get it
+" Why is this not default, I don't get it
+noremap Y y$
 noremap <silent> <leader>j :next<CR>
 noremap <silent> <leader>J :prev<CR>
 
@@ -700,7 +718,7 @@ nnoremap gf :lua  vim.lsp.buf.code_action()<CR>
 nnoremap gi :lua  vim.lsp.buf.implementation()<CR>
 nnoremap gj :lua  vim.lsp.buf.references()<CR>
 nnoremap gl :call LSP_open_loclist()<CR>
-nnoremap gn :lua  vim.lsp.diagnostic.goto_next()<CR>
+nnoremap gn :lua  vim.diagnostic.goto_next()<CR>
 nnoremap gr :lua  vim.lsp.buf.rename()<CR>
 nnoremap gs :lua  vim.lsp.buf.signature_help()<CR>
 nnoremap gt :lua  vim.lsp.buf.type_definition()<CR>

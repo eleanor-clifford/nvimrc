@@ -115,35 +115,51 @@ fun! TrimWhitespace()
 endfun
 " }}}
 " Email {{{
+let s:indent = '%(\> *)*'
+
 fun! FormatEmailRead()
 	" Yeah, I am big brain
 	set textwidth=78
-	silent g/\v^%(Cc|Bcc|Reply-To):\s*$/d " Remove empty headers
-	"silent g/\v^(%(\> *)*)$\n\zs^\1.{60,}$\ze\n^\1$/norm! gqj
-	
-	" Rewrite to Firstname Lastname
-	silent %s/\v^%(From|To|Cc|Bcc):.*\zs"(.{-}), ([^,]{-})"\ze \<.*\>,? *$/\2 \1/e " in RFC822 headers
-	silent %s/\v^%(On.*, )?(\w{-}), (\w{-}%( \w)?) wrote:$/\2 \1 wrote:/e " in reply quote header
-	silent %s/^From: Eleanor \zsC \zeClifford//e " and remove my middle initial
+	silent g/\v^%(Cc|Bcc|Reply-To):\s*$/d " Remove empty unnecessary headers
+	"silent g/\v^(%(\> *)*)$\n\zs^\1.{60,}$\ze\n^\1$/norm! gqj " reflow text
 
-	normal gg
+	" Rewrite 'Doe, John A' to 'John A Doe' or 'John Doe'. I am being petty --
+	" it's generally best to leave things unchanged, but Imperial College's
+	" systems reformat them into this, so I'm reformatting them back
+
+	let s:email_match = '[^@]*\@imperial.ac.uk'
+
+	let s:h = '%(From|To|Cc|Bcc):'         " header
+	let s:fn = '([a-zA-Z-]+)( [a-zA-Z])*'  " first name and optional initial
+	let s:ln = '([a-zA-Z- ]+)'             " last name
+	let s:lnfn = s:ln.', '.s:fn            " Doe, John A B
+	let s:replace = '\2 \1'                " no initial (or '\2\3 \1' for initial)
+
+	" rfc822, quote
+	let s:matches = [
+		\ '^'.s:h.'\s*\zs"'.s:lnfn.'"\ze\s*\<'.s:email_match.'\>\s*,?\s*',
+		\ '^'.s:indent.'%(On.*, )?\zs'.s:lnfn.'\ze\s*wrote:\s*$',
+	\ ]
+
+	for m in s:matches
+		silent execute '%s/\v'.m.'/'.s:replace.'/e'
+	endfor
 endfun
 
 fun! FormatEmailWrite()
 	" Just accept it, my regex skills are glorious
 	set textwidth=78
-	"let indent_specifier       = '%(\> *)*' " don't format quoted text
-	let indent_specifier       = '' " do format quoted text
+	let _i   = s:indent
+	"let _i  = '' " don't format quoted
 
-	let date_specifier         = '\n^'.indent_specifier.'On .*, .* wrote:\s*\n'
-	let header_start_specifier = '^'.indent_specifier.'\s*[-_]+.*\n'
+	let _h = '^'._i.'\s*[-_]+.*\n'
 	" Don't want to join intentionally split things, for now I will assume
 	" anything >60 chars can be split
 	let g:paragraph_specifier  =
-		\ '\v^('.indent_specifier.')\s*$\n%('.header_start_specifier.')@!'
+		\ '\v^('._i.')\s*$\n%('._h.')@!'
 		\.'\zs%(^\1\s*[^>].{60,}$\ze\n)+%(^\1\s*[^>].*$\ze\n)%(^\1\s*$)+'
 	while search(g:paragraph_specifier) != 0
-		execute 's/\v^'.indent_specifier.'\s*[^ ].*\zs\n^'.indent_specifier.'/ /'
+		execute 's/\v^'._i.'\s*[^ ].*\zs\n^'._i.'/ /'
 	endwhile
 endfun
 
