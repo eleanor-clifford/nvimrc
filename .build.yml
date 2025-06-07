@@ -9,8 +9,7 @@ secrets:
 tasks:
   - add-warning: |
       cd nvimrc
-      git checkout master
-      # fuck all this so much
+      git checkout trunk
       warning="
 
       | :exclamation:  | This is a mirror of [https://git.sr.ht/~ecc/nvimrc](https://git.sr.ht/~ecc/nvimrc). Please refrain from using GitHub's issue and PR system.  |
@@ -18,11 +17,11 @@ tasks:
 
       "
       if test -f README.md; then
-          echo "$warning" | cat - README.md > README2.md # save it, I literally do not care
+          echo "$warning" | cat - README.md > README2.md  # yeah yeah it's messed up
       else
           echo "$warning" > README2.md
       fi
-      # fuck all this redirection shit
+      # annoying redirection
       mv README2.md README.md
       git add README.md
       git commit -m "[builds.sr.ht] Add mirror warning to README.md"
